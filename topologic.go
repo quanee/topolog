@@ -101,30 +101,36 @@ func (g *Graph) genSequence(sorted []int) []string {
 	return rets
 }
 
-func (g *Graph) deleteEdge(end int, edges []int) {
+func (g *Graph) deleteEdge(curnode int, nodes *[]int, nodeset map[int]struct{}) {
 	for _, delEdge := range g.edges {
-		if delEdge.start == end {
-			edges = append(edges, delEdge.start)
+		if delEdge.start == curnode {
+			println(delEdge.start)
+			if _, ok := nodeset[delEdge.start]; !ok {
+				*nodes = append(*nodes, delEdge.start)
+				nodeset[delEdge.start] = struct{}{}
+				fmt.Println(*nodes)
+			}
 			delete(g.indeg[delEdge.end], delEdge.start)
 		}
-		if len(g.indeg[end]) == 0 {
-			delete(g.indeg, end)
+		if len(g.indeg[curnode]) == 0 {
+			delete(g.indeg, curnode)
 		}
 	}
 }
 
 func (g *Graph) topoSort() ([]int, bool) {
-	ret := []int{}
+	nodes := []int{}
+	nodeset := make(map[int]struct{})
 	sorted := make(map[int]struct{})
 	oldLen := len(sorted)
-	defer func() {
+	/* defer func() {
 		retSet := map[int]struct{}{}
-		for _, e := range ret {
+		for _, e := range nodes {
 			if _, ok := retSet[e]; !ok {
 				retSet[e] = struct{}{}
 			}
 		}
-	}()
+	}() */
 
 	for len(sorted) != g.count {
 		zeroDegreeNodes := []int{}
@@ -137,7 +143,7 @@ func (g *Graph) topoSort() ([]int, bool) {
 		if len(zeroDegreeNodes) > 0 {
 			for _, node := range zeroDegreeNodes {
 				if _, ok := sorted[node]; !ok {
-					g.deleteEdge(node, ret)
+					g.deleteEdge(node, &nodes, nodeset)
 					sorted[node] = struct{}{}
 				}
 			}
@@ -150,11 +156,11 @@ func (g *Graph) topoSort() ([]int, bool) {
 		}
 	}
 
-	if len(ret) != len(g.edges) {
+	if len(nodes) != len(g.edges) {
 		return nil, false
 	}
 
-	return ret, true
+	return nodes, true
 }
 
 func (g *Graph) TopoSequence() ([]string, bool) {

@@ -37,6 +37,10 @@ func NewGraph() *Graph {
 }
 
 func (g *Graph) AddEdge(start, end string) error {
+	if start == end {
+		return nil
+	}
+
 	if _, ok := g.nodes[start]; !ok {
 		g.nodes[start] = g.count
 		g.names[g.count] = start
@@ -54,10 +58,11 @@ func (g *Graph) AddEdge(start, end string) error {
 	g.indeg[g.nodes[end]][g.nodes[start]] = struct{}{}
 	g.edges = append(g.edges, &edge{start: g.nodes[start], end: g.nodes[end]})
 
-	g.queue = []int{g.nodes[end]}
-	if g.buildCycle(g.nodes[start]) {
-		fmt.Println("###", g.queue)
-	}
+	g.queue = []int{g.nodes[end], g.nodes[start]}
+	g.buildCycle(g.nodes[start])
+
+	fmt.Print("### ")
+	g.printQ()
 
 	return nil
 }
@@ -70,80 +75,82 @@ func (g *Graph) printQ() {
 }
 
 func (g *Graph) buildCycle(start int) bool {
+	if g.names[start] == "5" {
+		println()
+	}
 	for p := range g.indeg[start] {
 		if p == g.queue[0] {
+			g.queue = append(g.queue, p)
 			return true
 		}
 		g.queue = append(g.queue, p)
 
-		if g.buildCycle(p) {
+		if !g.buildCycle(p) {
 			g.queue = g.queue[:1]
 		}
+		return true
 	}
 
 	return false
 }
 
-func (g *Graph) genSequence(sorted []int) []string {
+func (g *Graph) genSequence(sorted []*edge) []string {
 	retSet := map[int]struct{}{}
+	var sequences []string
 
-	for _, node := range g.nodes {
-		if _, ok := retSet[node]; !ok {
-			retSet[node] = struct{}{}
-			sorted = append(sorted, node)
+	for _, node := range sorted {
+		if _, ok := retSet[node.start]; !ok {
+			retSet[node.start] = struct{}{}
+			sequences = append(sequences, g.names[node.start])
 		}
 	}
 
-	rets := []string{}
-	for _, n := range sorted {
-		rets = append(rets, g.names[n])
+	for node, name := range g.names {
+		if _, ok := retSet[node]; !ok {
+			sequences = append(sequences, name)
+		}
 	}
-	return rets
+
+	return sequences
 }
 
-func (g *Graph) deleteEdge(curnode int, nodes *[]int, nodeset map[int]struct{}) {
+func (g *Graph) deleteEdge(currnode int, nodes *[]*edge) {
 	for _, delEdge := range g.edges {
-		if delEdge.start == curnode {
-			println(delEdge.start)
-			if _, ok := nodeset[delEdge.start]; !ok {
-				*nodes = append(*nodes, delEdge.start)
-				nodeset[delEdge.start] = struct{}{}
-				fmt.Println(*nodes)
-			}
+		if delEdge.start == currnode {
+			*nodes = append(*nodes, delEdge)
 			delete(g.indeg[delEdge.end], delEdge.start)
 		}
-		if len(g.indeg[curnode]) == 0 {
-			delete(g.indeg, curnode)
+		if len(g.indeg[currnode]) == 0 {
+			delete(g.indeg, currnode)
 		}
 	}
 }
 
-func (g *Graph) topoSort() ([]int, bool) {
-	nodes := []int{}
-	nodeset := make(map[int]struct{})
+func (g *Graph) topoSort() ([]*edge, bool) {
+	var ret []*edge
 	sorted := make(map[int]struct{})
 	oldLen := len(sorted)
-	/* defer func() {
-		retSet := map[int]struct{}{}
-		for _, e := range nodes {
-			if _, ok := retSet[e]; !ok {
-				retSet[e] = struct{}{}
+	/*	defer func() {
+		retSet := map[string]struct{}{}
+		for _, e := range ret {
+			if _, ok := retSet[g.names[e.start]]; !ok {
+				retSet[g.names[e.start]] = struct{}{}
 			}
 		}
-	}() */
+	}()*/
 
 	for len(sorted) != g.count {
-		zeroDegreeNodes := []int{}
-		for _, node := range g.nodes {
-			if len(g.indeg[node]) == 0 {
-				zeroDegreeNodes = append(zeroDegreeNodes, node)
+		var zeroDegreeNodes []int
+		for node := range g.nodes {
+			if len(g.indeg[g.nodes[node]]) == 0 {
+				zeroDegreeNodes = append(zeroDegreeNodes, g.nodes[node])
 			}
 		}
 		sort.Ints(zeroDegreeNodes)
 		if len(zeroDegreeNodes) > 0 {
 			for _, node := range zeroDegreeNodes {
 				if _, ok := sorted[node]; !ok {
-					g.deleteEdge(node, &nodes, nodeset)
+					g.deleteEdge(node, &ret)
 					sorted[node] = struct{}{}
 				}
 			}
@@ -156,18 +163,20 @@ func (g *Graph) topoSort() ([]int, bool) {
 		}
 	}
 
-	if len(nodes) != len(g.edges) {
+	if len(ret) != len(g.edges) {
 		return nil, false
 	}
 
-	return nodes, true
+	return ret, true
 }
 
 func (g *Graph) TopoSequence() ([]string, bool) {
 	sorted, ok := g.topoSort()
+	g.printTopoEdges(sorted)
 	if !ok {
 		return nil, false
 	}
+	fmt.Println("$$$", sorted)
 
 	return g.genSequence(sorted), true
 }
@@ -179,5 +188,11 @@ func (g *Graph) PrintParent() {
 			fmt.Printf("%v ", g.names[p])
 		}
 		println()
+	}
+}
+
+func (g *Graph) printTopoEdges(sorted []*edge) {
+	for _, e := range sorted {
+		fmt.Printf("%v -> %v\n", g.names[e.start], g.names[e.end])
 	}
 }

@@ -1,7 +1,6 @@
 package topo
 
 import (
-	"fmt"
 	"sort"
 )
 
@@ -10,35 +9,30 @@ type edge struct {
 	end   int
 }
 
-type set struct {
-	s map[int]struct{}
-}
-
 type Graph struct {
 	count  int
 	edges  []*edge
 	indeg  map[int]map[int]struct{}
 	nodes  map[string]int
 	names  map[int]string
-	ufs    *unionfindset
 	queue  []int
 	visted map[int]struct{}
 }
 
 func NewGraph() *Graph {
 	return &Graph{
-		edges: []*edge{},
-		indeg: make(map[int]map[int]struct{}),
-		nodes: make(map[string]int),
-		names: make(map[int]string),
-		ufs:   newunionfindset(1000),
-		queue: make([]int, 0),
+		edges:  []*edge{},
+		indeg:  make(map[int]map[int]struct{}),
+		nodes:  make(map[string]int),
+		names:  make(map[int]string),
+		queue:  make([]int, 0),
+		visted: make(map[int]struct{}),
 	}
 }
 
-func (g *Graph) AddEdge(start, end string) error {
+func (g *Graph) AddEdge(start, end string) ([]string, bool) {
 	if start == end {
-		return nil
+		return nil, false
 	}
 
 	if _, ok := g.nodes[start]; !ok {
@@ -59,133 +53,129 @@ func (g *Graph) AddEdge(start, end string) error {
 	g.edges = append(g.edges, &edge{start: g.nodes[start], end: g.nodes[end]})
 
 	g.queue = []int{g.nodes[end], g.nodes[start]}
-	g.buildCycle(g.nodes[start])
-
-	fmt.Print("### ")
-	g.printQ()
-
-	return nil
-}
-
-func (g *Graph) printQ() {
-	for _, n := range g.queue {
-		fmt.Printf("%v, ", g.names[n])
+	g.visted = make(map[int]struct{})
+	if g.buildCycle(g.nodes[start]) {
+		return g.node2name(g.queue[1:]), true
 	}
-	println()
+
+	return nil, false
 }
 
 func (g *Graph) buildCycle(start int) bool {
-	if g.names[start] == "5" {
-		println()
-	}
 	for p := range g.indeg[start] {
+		if _, ok := g.visted[p]; ok {
+			continue
+		}
+		g.visted[p] = struct{}{}
+
 		if p == g.queue[0] {
 			g.queue = append(g.queue, p)
 			return true
 		}
 		g.queue = append(g.queue, p)
 
+		i := len(g.queue)
 		if !g.buildCycle(p) {
-			g.queue = g.queue[:1]
+			g.queue = g.queue[:i-1]
+		} else {
+			return true
 		}
-		return true
 	}
 
 	return false
 }
 
-func (g *Graph) genSequence(sorted []*edge) []string {
-	retSet := map[int]struct{}{}
-	var sequences []string
-
-	for _, node := range sorted {
-		if _, ok := retSet[node.start]; !ok {
-			retSet[node.start] = struct{}{}
-			sequences = append(sequences, g.names[node.start])
-		}
+func (g *Graph) node2name(nodes []int) (names []string) {
+	for i := len(nodes) - 1; i >= 0; i-- {
+		names = append(names, g.names[nodes[i]])
 	}
-
-	for node, name := range g.names {
-		if _, ok := retSet[node]; !ok {
-			sequences = append(sequences, name)
-		}
-	}
-
-	return sequences
+	return
 }
 
-func (g *Graph) deleteEdge(currnode int, nodes *[]*edge) {
-	for _, delEdge := range g.edges {
-		if delEdge.start == currnode {
-			*nodes = append(*nodes, delEdge)
-			delete(g.indeg[delEdge.end], delEdge.start)
-		}
-		if len(g.indeg[currnode]) == 0 {
-			delete(g.indeg, currnode)
-		}
+func (g *Graph) TopoSequence() ([]string, bool) {
+	sorted, ok := g.topoSort()
+	if !ok {
+		return nil, true
 	}
+
+	return g.topoSequence(sorted), false
 }
 
 func (g *Graph) topoSort() ([]*edge, bool) {
-	var ret []*edge
-	sorted := make(map[int]struct{})
-	oldLen := len(sorted)
-	/*	defer func() {
-		retSet := map[string]struct{}{}
-		for _, e := range ret {
-			if _, ok := retSet[g.names[e.start]]; !ok {
-				retSet[g.names[e.start]] = struct{}{}
-			}
-		}
-	}()*/
+	var topoedge []*edge
+	delnode := make(map[int]struct{})
+	oldLen := len(delnode)
 
-	for len(sorted) != g.count {
-		var zeroDegreeNodes []int
+	for len(delnode) != g.count {
+		var zerodegnode []int
 		for node := range g.nodes {
 			if len(g.indeg[g.nodes[node]]) == 0 {
-				zeroDegreeNodes = append(zeroDegreeNodes, g.nodes[node])
+				zerodegnode = append(zerodegnode, g.nodes[node])
 			}
 		}
-		sort.Ints(zeroDegreeNodes)
-		if len(zeroDegreeNodes) > 0 {
-			for _, node := range zeroDegreeNodes {
-				if _, ok := sorted[node]; !ok {
-					g.deleteEdge(node, &ret)
-					sorted[node] = struct{}{}
+		sort.Ints(zerodegnode)
+		if len(zerodegnode) > 0 {
+			for _, node := range zerodegnode {
+				if _, ok := delnode[node]; !ok {
+					topoedge = append(topoedge, g.deleteEdge(node)...)
+					delnode[node] = struct{}{}
 				}
 			}
-			if len(sorted) == oldLen {
+			if len(delnode) == oldLen {
 				return nil, false
 			}
-			oldLen = len(sorted)
+			oldLen = len(delnode)
 		} else {
 			break
 		}
 	}
 
-	if len(ret) != len(g.edges) {
+	if len(topoedge) != len(g.edges) {
 		return nil, false
 	}
 
-	return ret, true
+	return topoedge, true
 }
 
-func (g *Graph) TopoSequence() ([]string, bool) {
-	sorted, ok := g.topoSort()
-	g.printTopoEdges(sorted)
-	if !ok {
-		return nil, false
+func (g *Graph) deleteEdge(currnode int) (nodes []*edge) {
+	for _, edge := range g.edges {
+		if edge.start == currnode {
+			nodes = append(nodes, edge)
+			delete(g.indeg[edge.end], edge.start)
+		}
+		if len(g.indeg[currnode]) == 0 {
+			delete(g.indeg, currnode)
+		}
 	}
-	fmt.Println("$$$", sorted)
 
-	return g.genSequence(sorted), true
+	return
 }
 
-func (g *Graph) PrintParent() {
+func (g *Graph) topoSequence(sorted []*edge) []string {
+	set := map[int]struct{}{}
+	sequences := make([]int, 0, len(g.nodes))
+
+	for _, node := range sorted {
+		if _, ok := set[node.start]; !ok {
+			set[node.start] = struct{}{}
+			sequences = append(sequences, node.start)
+		}
+	}
+
+	for node := range g.names {
+		if _, ok := set[node]; !ok {
+			sequences = append(sequences, node)
+		}
+	}
+
+	return g.node2name(sequences)
+}
+
+func (g *Graph) printParent() {
 	for node, parent := range g.indeg {
-		fmt.Printf("%v -> ", g.names[node])
+		println(g.names[node], " -> ")
 		for p := range parent {
-			fmt.Printf("%v ", g.names[p])
+			print(g.names[p], " ")
 		}
 		println()
 	}
@@ -193,6 +183,14 @@ func (g *Graph) PrintParent() {
 
 func (g *Graph) printTopoEdges(sorted []*edge) {
 	for _, e := range sorted {
-		fmt.Printf("%v -> %v\n", g.names[e.start], g.names[e.end])
+		println(g.names[e.start], " -> ", g.names[e.end])
 	}
+}
+
+func (g *Graph) printQ() {
+	println("-------------")
+	for _, n := range g.queue {
+		print(g.names[n], ", ")
+	}
+	println("\n-------------")
 }

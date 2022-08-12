@@ -1,17 +1,12 @@
 package topo
 
 import (
-	"fmt"
 	"sort"
 )
 
 type edge struct {
 	start int
 	end   int
-}
-
-type set struct {
-	s map[int]struct{}
 }
 
 type Graph struct {
@@ -22,22 +17,27 @@ type Graph struct {
 	names  map[int]string
 	queue  []int
 	visted map[int]struct{}
+	cycles [][]int
 }
 
 func NewGraph() *Graph {
 	return &Graph{
 		edges:  []*edge{},
-		indeg:  make(map[int]map[int]struct{}),
-		nodes:  make(map[string]int),
-		names:  make(map[int]string),
-		queue:  make([]int, 0),
-		visted: make(map[int]struct{}),
+		indeg:  map[int]map[int]struct{}{},
+		nodes:  map[string]int{},
+		names:  map[int]string{},
+		queue:  []int{},
+		visted: map[int]struct{}{},
+		cycles: [][]int{},
 	}
 }
 
-func (g *Graph) AddEdge(start, end string) error {
+func (g *Graph) AddEdge(start, end string) ([][]string, bool) {
+	if start == "11" && end == "3" {
+		println()
+	}
 	if start == end {
-		return nil
+		return nil, false
 	}
 
 	if _, ok := g.nodes[start]; !ok {
@@ -59,103 +59,50 @@ func (g *Graph) AddEdge(start, end string) error {
 
 	g.queue = []int{g.nodes[end], g.nodes[start]}
 	g.visted = make(map[int]struct{})
-	if g.buildCycle(g.nodes[start]) {
-		g.printQ()
+
+	g.buildCycle(g.nodes[start])
+
+	if len(g.cycles) > 0 {
+		cycles := make([][]string, 0, len(g.cycles))
+		for _, cycle := range g.cycles {
+			for i := 0; i < len(cycle)>>1; i++ {
+				cycle[i], cycle[len(cycle)-i-1] = cycle[len(cycle)-i-1], cycle[i]
+			}
+			cycles = append(cycles, g.node2name(cycle))
+		}
+		return cycles, true
 	}
 
-	return nil
+	return nil, false
 }
 
-func (g *Graph) buildCycle(start int) bool {
+func (g *Graph) buildCycle(start int) {
 	for p := range g.indeg[start] {
+		if p == g.queue[0] {
+			g.queue = append(g.queue, p)
+			g.cycles = append(g.cycles, g.queue[1:])
+			g.queue = g.queue[:len(g.queue)-1]
+			continue
+		}
 		if _, ok := g.visted[p]; ok {
 			continue
 		}
 		g.visted[p] = struct{}{}
 
-		if p == g.queue[0] {
-			g.queue = append(g.queue, p)
-			return true
-		}
 		g.queue = append(g.queue, p)
 
 		i := len(g.queue)
-		if !g.buildCycle(p) {
-			g.queue = g.queue[:i-1]
-		} else {
-			return true
-		}
-	}
-
-	return false
-}
-
-func (g *Graph) genSequence(sorted []*edge) []string {
-	retSet := map[int]struct{}{}
-	var sequences []string
-
-	for _, node := range sorted {
-		if _, ok := retSet[node.start]; !ok {
-			retSet[node.start] = struct{}{}
-			sequences = append(sequences, g.names[node.start])
-		}
-	}
-
-	for node, name := range g.names {
-		if _, ok := retSet[node]; !ok {
-			sequences = append(sequences, name)
-		}
-	}
-
-	return sequences
-}
-
-func (g *Graph) deleteEdge(currnode int, nodes *[]*edge) {
-	for _, delEdge := range g.edges {
-		if delEdge.start == currnode {
-			*nodes = append(*nodes, delEdge)
-			delete(g.indeg[delEdge.end], delEdge.start)
-		}
-		if len(g.indeg[currnode]) == 0 {
-			delete(g.indeg, currnode)
-		}
+		g.buildCycle(p)
+		g.queue = g.queue[:i-1]
 	}
 }
 
-func (g *Graph) topoSort() ([]*edge, bool) {
-	var ret []*edge
-	sorted := make(map[int]struct{})
-	oldLen := len(sorted)
-
-	for len(sorted) != g.count {
-		var zeroDegreeNodes []int
-		for node := range g.nodes {
-			if len(g.indeg[g.nodes[node]]) == 0 {
-				zeroDegreeNodes = append(zeroDegreeNodes, g.nodes[node])
-			}
-		}
-		sort.Ints(zeroDegreeNodes)
-		if len(zeroDegreeNodes) > 0 {
-			for _, node := range zeroDegreeNodes {
-				if _, ok := sorted[node]; !ok {
-					g.deleteEdge(node, &ret)
-					sorted[node] = struct{}{}
-				}
-			}
-			if len(sorted) == oldLen {
-				return nil, false
-			}
-			oldLen = len(sorted)
-		} else {
-			break
-		}
+func (g *Graph) node2name(nodes []int) []string {
+	names := make([]string, 0, len(nodes))
+	for _, node := range nodes {
+		names = append(names, g.names[node])
 	}
-
-	if len(ret) != len(g.edges) {
-		return nil, false
-	}
-
-	return ret, true
+	return names
 }
 
 func (g *Graph) TopoSequence() ([]string, bool) {
@@ -164,14 +111,84 @@ func (g *Graph) TopoSequence() ([]string, bool) {
 		return nil, true
 	}
 
-	return g.genSequence(sorted), false
+	return g.topoSequence(sorted), false
 }
 
-func (g *Graph) PrintParent() {
+func (g *Graph) topoSort() ([]*edge, bool) {
+	var topoedge []*edge
+	delnode := make(map[int]struct{})
+	oldLen := len(delnode)
+
+	for len(delnode) != g.count {
+		var zerodegnode []int
+		for node := range g.nodes {
+			if len(g.indeg[g.nodes[node]]) == 0 {
+				zerodegnode = append(zerodegnode, g.nodes[node])
+			}
+		}
+		sort.Ints(zerodegnode)
+		if len(zerodegnode) > 0 {
+			for _, node := range zerodegnode {
+				if _, ok := delnode[node]; !ok {
+					topoedge = append(topoedge, g.deleteEdge(node)...)
+					delnode[node] = struct{}{}
+				}
+			}
+			if len(delnode) == oldLen {
+				return nil, false
+			}
+			oldLen = len(delnode)
+		} else {
+			break
+		}
+	}
+
+	if len(topoedge) != len(g.edges) {
+		return nil, false
+	}
+
+	return topoedge, true
+}
+
+func (g *Graph) deleteEdge(currnode int) (nodes []*edge) {
+	for _, edge := range g.edges {
+		if edge.start == currnode {
+			nodes = append(nodes, edge)
+			delete(g.indeg[edge.end], edge.start)
+		}
+		if len(g.indeg[currnode]) == 0 {
+			delete(g.indeg, currnode)
+		}
+	}
+
+	return
+}
+
+func (g *Graph) topoSequence(sorted []*edge) []string {
+	set := map[int]struct{}{}
+	sequences := make([]int, 0, len(g.nodes))
+
+	for _, node := range sorted {
+		if _, ok := set[node.start]; !ok {
+			set[node.start] = struct{}{}
+			sequences = append(sequences, node.start)
+		}
+	}
+
+	for node := range g.names {
+		if _, ok := set[node]; !ok {
+			sequences = append(sequences, node)
+		}
+	}
+
+	return g.node2name(sequences)
+}
+
+func (g *Graph) printParent() {
 	for node, parent := range g.indeg {
-		fmt.Printf("%v -> ", g.names[node])
+		println(g.names[node], " -> ")
 		for p := range parent {
-			fmt.Printf("%v ", g.names[p])
+			print(g.names[p], " ")
 		}
 		println()
 	}
@@ -179,13 +196,14 @@ func (g *Graph) PrintParent() {
 
 func (g *Graph) printTopoEdges(sorted []*edge) {
 	for _, e := range sorted {
-		fmt.Printf("%v -> %v\n", g.names[e.start], g.names[e.end])
+		println(g.names[e.start], " -> ", g.names[e.end])
 	}
 }
 
 func (g *Graph) printQ() {
+	println("-------------")
 	for _, n := range g.queue {
-		fmt.Printf("%v, ", g.names[n])
+		print(g.names[n], ", ")
 	}
-	println()
+	println("\n-------------")
 }

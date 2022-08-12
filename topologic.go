@@ -33,9 +33,6 @@ func NewGraph() *Graph {
 }
 
 func (g *Graph) AddEdge(start, end string) ([][]string, bool) {
-	if start == "11" && end == "3" {
-		println()
-	}
 	if start == end {
 		return nil, false
 	}
@@ -78,12 +75,18 @@ func (g *Graph) AddEdge(start, end string) ([][]string, bool) {
 
 func (g *Graph) buildCycle(start int) {
 	for p := range g.indeg[start] {
+		if _, ok := g.visted[p]; ok {
+			continue
+		}
+		g.visted[p] = struct{}{}
+
 		if p == g.queue[0] {
 			g.queue = append(g.queue, p)
 			g.cycles = append(g.cycles, g.queue[1:])
 			g.queue = g.queue[:len(g.queue)-1]
 			continue
 		}
+
 		if _, ok := g.visted[p]; ok {
 			continue
 		}

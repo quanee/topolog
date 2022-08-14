@@ -75,10 +75,10 @@ func (g *Graph) AddEdge(start, end string) ([][]string, bool) {
 
 func (g *Graph) buildCycle(start int) {
 	for p := range g.indeg[start] {
-		if _, ok := g.visted[p]; ok {
+		/*if _, ok := g.visted[p]; ok {
 			continue
 		}
-		g.visted[p] = struct{}{}
+		g.visted[p] = struct{}{}*/
 
 		if p == g.queue[0] {
 			g.queue = append(g.queue, p)
@@ -87,10 +87,10 @@ func (g *Graph) buildCycle(start int) {
 			continue
 		}
 
-		if _, ok := g.visted[p]; ok {
+		/*if _, ok := g.visted[p]; ok {
 			continue
 		}
-		g.visted[p] = struct{}{}
+		g.visted[p] = struct{}{}*/
 
 		g.queue = append(g.queue, p)
 
@@ -108,7 +108,7 @@ func (g *Graph) node2name(nodes []int) []string {
 	return names
 }
 
-func (g *Graph) TopoSequence() ([]string, bool) {
+func (g *Graph) TopoSequence() (topos []string, cycl bool) {
 	sorted, ok := g.topoSort()
 	if !ok {
 		return nil, true

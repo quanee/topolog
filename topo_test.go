@@ -10,7 +10,7 @@ import (
 func TestTopo(t *testing.T) {
 	g := topo.NewGraph()
 	edges := [][]string{
-		{"1", "3"},
+		/*{"1", "3"},
 		{"2", "3"},
 		{"2", "4"},
 		{"3", "5"},
@@ -30,7 +30,13 @@ func TestTopo(t *testing.T) {
 		{"8", "11"},
 		//{"11", "6"},
 		{"6", "11"},
-		{"11", "3"},
+		{"11", "3"},*/
+		/*{"0", "1"},
+		{"1", "2"},
+		{"2", "3"},
+		{"3", "4"},
+		{"1", "3"},
+		{"4", "1"},*/
 	}
 	for _, edge := range edges {
 		if cycle, ok := g.AddEdge(edge[0], edge[1]); ok {
@@ -38,30 +44,39 @@ func TestTopo(t *testing.T) {
 		}
 	}
 
-	/*g.AddEdge("1", "2")
-	g.AddEdge("1", "3")
-	g.AddEdge("2", "3")
-	g.AddEdge("2", "4")
-	g.AddEdge("4", "5")
-	g.AddEdge("5", "2")*/
+	edges = [][]string{
+		{"0", "1"},
+		{"1", "2"},
+		{"2", "3"},
+		{"3", "4"},
+		{"1", "3"},
+		{"4", "1"},
+	}
 
-	/* g.AddEdge("0", "1")
-	g.AddEdge("0", "2")
-	g.AddEdge("0", "3")
-	g.AddEdge("1", "4")
-	g.AddEdge("3", "4")
-	g.AddEdge("2", "5")
-	g.AddEdge("2", "6")
-	g.AddEdge("3", "7")
-	g.AddEdge("6", "8")
-	g.AddEdge("8", "9")
-	g.AddEdge("7", "9")
-	g.AddEdge("8", "10")
-	g.AddEdge("8", "11")
-	g.AddEdge("9", "12")
-	g.AddEdge("5", "10") */
-	//g.AddEdge("8", "0")
-	//g.AddEdge("9", "6")
+	/*edges = [][]string{
+		{"0", "1"},
+		{"0", "2"},
+		{"0", "3"},
+		{"1", "4"},
+		{"3", "4"},
+		{"2", "5"},
+		{"2", "6"},
+		{"3", "7"},
+		{"6", "8"},
+		{"8", "9"},
+		{"7", "9"},
+		{"8", "10"},
+		{"8", "11"},
+		{"9", "12"},
+		{"5", "10"},
+		//{"8", "0"},
+		{"9", "6"},
+	}*/
+	for _, edge := range edges {
+		if cycle, ok := g.AddEdge(edge[0], edge[1]); ok {
+			fmt.Println(cycle)
+		}
+	}
 
-	//fmt.Println(g.TopoSequence())
+	fmt.Println(g.TopoSequence())
 }

@@ -75,22 +75,13 @@ func (g *Graph) AddEdge(start, end string) ([][]string, bool) {
 
 func (g *Graph) buildCycle(start int) {
 	for p := range g.indeg[start] {
-		/*if _, ok := g.visted[p]; ok {
-			continue
-		}
-		g.visted[p] = struct{}{}*/
-
 		if p == g.queue[0] {
 			g.queue = append(g.queue, p)
-			g.cycles = append(g.cycles, g.queue[1:])
-			g.queue = g.queue[:len(g.queue)-1]
+			tmp := make([]int, len(g.queue)-1)
+			copy(tmp, g.queue[1:])
+			g.cycles = append(g.cycles, tmp)
 			continue
 		}
-
-		/*if _, ok := g.visted[p]; ok {
-			continue
-		}
-		g.visted[p] = struct{}{}*/
 
 		g.queue = append(g.queue, p)
 
@@ -204,8 +195,12 @@ func (g *Graph) printTopoEdges(sorted []*edge) {
 }
 
 func (g *Graph) printQ() {
+	g.printCycle(g.queue)
+}
+
+func (g *Graph) printCycle(cycle []int) {
 	println("-------------")
-	for _, n := range g.queue {
+	for _, n := range cycle {
 		print(g.names[n], ", ")
 	}
 	println("\n-------------")

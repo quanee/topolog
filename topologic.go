@@ -16,7 +16,6 @@ type Graph struct {
 	nodes  map[string]int
 	names  map[int]string
 	queue  []int
-	visted map[int]struct{}
 	cycles [][]int
 }
 
@@ -27,7 +26,6 @@ func NewGraph() *Graph {
 		nodes:  map[string]int{},
 		names:  map[int]string{},
 		queue:  []int{},
-		visted: map[int]struct{}{},
 		cycles: [][]int{},
 	}
 }
@@ -53,9 +51,7 @@ func (g *Graph) AddEdge(start, end string) ([][]string, bool) {
 	}
 	g.indeg[g.nodes[end]][g.nodes[start]] = struct{}{}
 	g.edges = append(g.edges, &edge{start: g.nodes[start], end: g.nodes[end]})
-
 	g.queue = []int{g.nodes[end], g.nodes[start]}
-	g.visted = make(map[int]struct{})
 
 	g.buildCycle(g.nodes[start])
 
